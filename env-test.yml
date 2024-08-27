@@ -1,0 +1,13 @@
+- hosts: debian_srv
+  # Cette section cible les hôtes spécifiés sous le groupe "debian_srv" dans l'inventaire Ansible.
+  # Les tâches ou rôles définis seront exécutés sur ces hôtes.
+  roles:
+    - strongswan_srv  # Associe le rôle "strongswan_srv" aux hôtes "debian_srv".
+                      # Ce rôle pourrait contenir des tâches spécifiques pour configurer un serveur StrongSwan.
+
+- hosts: debian_client
+  # Cette section cible les hôtes spécifiés sous le groupe "debian_client" dans l'inventaire Ansible.
+  # Les tâches ou rôles définis seront exécutés sur ces hôtes.
+  roles:
+    - strongswan_client  # Associe le rôle "strongswan_client" aux hôtes "debian_client".
+                         # Ce rôle pourrait contenir des tâches spécifiques pour configurer un client StrongSwan.

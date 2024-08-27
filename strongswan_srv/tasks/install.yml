@@ -1,0 +1,17 @@
+---
+
+- name: Install strongswan
+  # Cette tâche installe StrongSwan et ses dépendances sur le système.
+  # StrongSwan est une solution logicielle pour implémenter des VPNs IPsec.
+  package:
+    update_cache: yes  # Met à jour le cache des paquets pour s'assurer d'installer les versions les plus récentes.
+    name: "{{ item }}"  # Indique le nom du paquet à installer. Utilise une boucle pour gérer plusieurs paquets.
+    state: present  # S'assure que chaque paquet est installé (si un paquet n'est pas présent, il sera installé).
+  loop:
+    - strongswan  # Paquet principal pour StrongSwan, nécessaire pour établir un VPN IPsec.
+    - strongswan-pki  # Fournit des outils pour la gestion des certificats PKI (Public Key Infrastructure).
+    - libcharon-extra-plugins  # Plugins supplémentaires pour Charon, le démon IKE de StrongSwan.
+    - libcharon-extauth-plugins  # Plugins pour gérer l'authentification externe avec Charon.
+    - libstrongswan-extra-plugins  # Plugins supplémentaires pour les bibliothèques de StrongSwan.
+    - libtss2-tcti-tabrmd0  # Bibliothèque pour l'intégration avec TPM (Trusted Platform Module).
+    - strongswan-swanctl  # Outil de gestion basé sur des fichiers de configuration pour StrongSwan.

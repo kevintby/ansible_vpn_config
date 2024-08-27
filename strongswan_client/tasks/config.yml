@@ -1,0 +1,52 @@
+---
+- name: Enable IP forwarding
+  # Cette tâche active le forwarding IP (la transmission de paquets IP d'une interface réseau à une autre).
+  # Cela est nécessaire pour permettre la transmission de paquets entre réseaux via cette machine.
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    state: present
+    reload: yes
+
+- name: Backup default IPsec configuration
+  # Cette tâche sauvegarde le fichier de configuration IPsec par défaut en le déplaçant vers un nouveau fichier 
+  # de backup. Cela permet de restaurer la configuration originale si nécessaire.
+  command: mv /etc/ipsec.conf /etc/ipsec.conf.bkp
+  args:
+    creates: /etc/ipsec.conf.bkp  # Cette condition assure que la tâche ne sera exécutée que si le fichier de 
+                                   # backup n'existe pas déjà.
+
+- name: Create new IPsec configuration on Gateway 2
+  # Cette tâche crée un nouveau fichier de configuration IPsec sur la passerelle 2. La configuration spécifie 
+  # les paramètres nécessaires pour établir un tunnel IPsec entre deux réseaux.
+  copy:
+    content: |
+      config setup
+          charondebug="all"  # Active les logs de débogage pour charon, le démon IKE de strongSwan.
+          uniqueids=yes  # Évite les doublons de connexions en forçant la déconnexion des anciens identifiants.
+      conn ipsec-example
+          type=tunnel
+          auto=start  # Démarre automatiquement la connexion IPsec.
+          keyexchange=ikev2  # Spécifie l'utilisation de IKEv2 pour l'échange de clés.
+          authby=psk  # Authentification par clé pré-partagée (PSK).
+          left={{ gateway_srv_ip }}  # Adresse IP de la passerelle locale (serveur).
+          leftsubnet={{ gateway_srv_subnet }}  # Sous-réseau de la passerelle locale.
+          right={{ gateway_client_ip }}  # Adresse IP de la passerelle distante (client).
+          rightsubnet={{ gateway_client_subnet }}  # Sous-réseau de la passerelle distante.
+          ike=aes256gcm16-sha256-modp1024!  # Spécifie les algorithmes de chiffrement et de hash pour IKE.
+          esp=aes256gcm16-sha256-modp1024!  # Spécifie les algorithmes de chiffrement et de hash pour ESP.
+          keyingtries=%forever  # Tente de rétablir la connexion indéfiniment en cas d'échec.
+          ikelifetime=60s  # Durée de vie des SA IKE.
+          lifetime=30s  # Durée de vie des SA IPsec.
+          dpddelay=10s  # Intervalle entre les messages de détection de l'état de la connexion.
+          dpdaction=restart  # Redémarre la connexion si la détection de l'état échoue.
+    dest: /etc/ipsec.conf  # Destination du fichier de configuration IPsec.
+
+- name: Add PSK to /etc/ipsec.secrets
+  # Cette tâche ajoute la clé pré-partagée (PSK) nécessaire pour l'authentification entre les deux passerelles 
+  # dans le fichier /etc/ipsec.secrets.
+  lineinfile:
+     path: /etc/ipsec.secrets  # Fichier où la PSK sera ajoutée.
+     line: '{{ gateway_client_ip }} {{ gateway_srv_ip }} : PSK "{{ psk }}"'  # Format de la ligne ajoutée : 
+                                                                             # "IP_client IP_serveur : PSK".
+     state: present  # Assure que la ligne est présente dans le fichier (ajoute la ligne si elle n'existe pas).

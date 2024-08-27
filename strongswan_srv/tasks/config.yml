@@ -1,0 +1,51 @@
+---
+- name: Enable IP forwarding
+  # Cette tâche active le transfert de paquets IP entre interfaces réseau sur la machine.
+  # Cela est essentiel pour permettre à la machine de router les paquets entre différents réseaux.
+  sysctl:
+    name: net.ipv4.ip_forward  # Spécifie le paramètre de noyau à modifier pour activer le forwarding IP.
+    value: 1  # Définit la valeur du paramètre à 1 pour activer le forwarding.
+    state: present  # Assure que le paramètre est présent et configuré avec la valeur spécifiée.
+    reload: yes  # Recharge les paramètres sysctl pour appliquer la modification immédiatement.
+
+- name: Backup default IPsec configuration
+  # Cette tâche sauvegarde la configuration par défaut d'IPsec en renommant le fichier original.
+  # Cela permet de restaurer la configuration originale en cas de besoin.
+  command: mv /etc/ipsec.conf /etc/ipsec.conf.bkp  # Commande pour déplacer le fichier de configuration.
+  args:
+    creates: /etc/ipsec.conf.bkp  # Condition qui évite d'exécuter la commande si le fichier de backup existe déjà.
+
+- name: Create new IPsec configuration on Gateway 1
+  # Cette tâche crée un nouveau fichier de configuration IPsec sur la passerelle 1.
+  # La configuration spécifie les paramètres pour établir un tunnel IPsec entre deux réseaux.
+  copy:
+    content: |
+      config setup
+          charondebug="all"  # Active les logs de débogage pour charon, le démon IKE de StrongSwan.
+          uniqueids=yes  # Évite les doublons de connexions en forçant la déconnexion des anciens identifiants.
+      conn ipsec-example
+          type=tunnel  # Spécifie que le type de connexion est un tunnel IPsec.
+          auto=start  # La connexion est démarrée automatiquement au démarrage du service IPsec.
+          keyexchange=ikev2  # Utilise IKEv2 pour l'échange de clés.
+          authby=psk  # Authentification par clé pré-partagée (PSK).
+          left={{ gateway_client_ip }}  # Adresse IP de la passerelle locale (client).
+          leftsubnet={{ gateway_client_subnet }}  # Sous-réseau local géré par la passerelle (client).
+          right={{ gateway_srv_ip }}  # Adresse IP de la passerelle distante (serveur).
+          rightsubnet={{ gateway_srv_subnet }}  # Sous-réseau distant géré par la passerelle (serveur).
+          ike=aes256gcm16-sha256-modp1024!  # Algorithmes de chiffrement et de hachage pour IKE.
+          esp=aes256gcm16-sha256-modp1024!  # Algorithmes de chiffrement et de hachage pour ESP.
+          keyingtries=%forever  # Nombre illimité de tentatives pour établir la connexion.
+          ikelifetime=60s  # Durée de vie des SA IKE (Security Associations).
+          lifetime=30s  # Durée de vie des SA IPsec.
+          dpddelay=10s  # Intervalle entre les messages de détection de l'état de la connexion.
+          dpdaction=restart  # Redémarre la connexion si la détection de l'état échoue.
+    dest: /etc/ipsec.conf  # Destination du nouveau fichier de configuration IPsec.
+
+- name: Add PSK to /etc/ipsec.secrets
+  # Cette tâche ajoute la clé pré-partagée (PSK) nécessaire pour l'authentification entre les deux passerelles 
+  # dans le fichier /etc/ipsec.secrets.
+  lineinfile:
+     path: /etc/ipsec.secrets  # Chemin du fichier dans lequel la ligne sera ajoutée.
+     line: '{{ gateway_srv_ip }} {{ gateway_client_ip }} : PSK "{{ psk }}"'  # Format de la ligne ajoutée : 
+                                                                             # "IP_serveur IP_client : PSK".
+     state: present  # Assure que la ligne est présente dans le fichier (ajoute la ligne si elle n'existe pas).

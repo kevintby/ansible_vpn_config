@@ -1,0 +1,14 @@
+---
+
+# install strongswan
+- import_tasks: install.yml
+
+# strongswan configuration
+- import_tasks: config.yml
+
+# start strongswan
+- name: strongswan started
+  service:
+    name: strongswan-starter
+    state: started
+
